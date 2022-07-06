@@ -4,8 +4,9 @@ from bokeh.io import output_file, save, show, curdoc
 from bokeh.plotting import figure
 from bokeh.models import LinearAxis, Range1d, ColumnDataSource
 from bokeh.models.tools import HoverTool
+from bokeh.layouts import gridplot
 
-# Bug notice: Some of the data recieved had the leading '0' truncated off the front.
+# Bug notice: Some of the data recieved, had the leading '0' truncated off the front.
 # For example '09180000' --> '9180000'
 # If there are any errors with reading in the raw data, please check the site numbers.
 site_list = ['09180000',        # 'DOLORES RIVER NEAR CISCO, UT',
@@ -15,9 +16,35 @@ site_list = ['09180000',        # 'DOLORES RIVER NEAR CISCO, UT',
              '09306500',        # WHITE RIVER NEAR WATSON, UTAH
              '09379500',        # SAN JUAN RIVER NEAR BLUFF, UT
              ]
+
+# Dictionary used to transfer between strings and ints.
+month_dict = {
+    1: 'Jan',
+    2: 'Feb',
+    3: 'Mar',
+    4: 'Apr',
+    5: 'May',
+    6: 'Jun',
+    7: 'Jul',
+    8: 'Aug',
+    9: 'Sept',
+    10: 'Oct',
+    11: 'Nov',
+    12: 'Dec'
+}
+
+# Read in the metadata so that the site names can be attached to the graph.
+try:
+    df_metadata = pd.read_csv('raw_data/metadata.csv')
+except:
+    print("ERROR WITH READING METADATA")
+    exit(1)
+
 curdoc().theme = 'dark_minimal'
 
 for site in site_list:
+
+    site_name = df_metadata.loc[df_metadata['station_id'] == int(site),'site_name'].iloc[0]
     output_file(site + '_time_series.html')
 
     # Reads the data in for the given site
@@ -26,7 +53,7 @@ for site in site_list:
         df_et = pd.read_csv('raw_data/ucrb_riparain_et/'
                     'intercomparison_output_main_UCRB_CDA_Riparian_ucrb_cda_'+ site +'_EEMETRIC_monthly_et_etof.csv')
     except:
-        print("ERROR WITH READING DATA FOR SITE: " + site)
+        print("ERROR WHEN READING DATA FROM SITE: " + site)
         exit(1)
 
     # If a directory for the site does not exist, make it.
@@ -44,7 +71,11 @@ for site in site_list:
     # This is needed for plotting the x axis
     df_merged['START_DATE'] = df_et['START_DATE'].apply(lambda x: pd.to_datetime(x))
 
-    #######################################################
+    # Here the month column is changed from int to string.
+    # Example: 1 --> 'jan'
+    df_merged['month'] = df_merged['month'].apply(lambda x: month_dict[x])
+
+   #######################################################
     # Series plot Configuration
     p = figure(x_axis_type="datetime", width=1500)
     p.xgrid.grid_line_color = None
@@ -68,7 +99,7 @@ for site in site_list:
            y_range_name='foo',
            color='green')
 
-    p.title.text = 'SITE: ' + site + ' - Stream Flow vs. Evapotranspiration'
+    p.title.text = 'SITE: ' + site_name + ', ' + site + ' - Flow vs. ET'
     p.xaxis.axis_label = 'Date'
     p.yaxis.axis_label = 'Minimum Stream Flow, Monthly (cfs)'
     p.add_layout(LinearAxis(y_range_name="foo", axis_label='Mean Evapotranspiration, Monthly (mm/d)'), 'right')
@@ -85,7 +116,6 @@ for site in site_list:
 
     os.chdir(path)
     save(p)
-    os.chdir('..')
 
     #######################################################
     # Scatter plot Configuration
@@ -96,9 +126,10 @@ for site in site_list:
     p2.ygrid.grid_line_color = None
     p2.circle(x='min_cfs', y='ET_MEAN',
              source=ColumnDataSource(df_merged),
-             color='blue', size=5)
+             color='black', fill_color="pink",
+             size=5)
 
-    p2.title.text = 'SITE: ' + site + ' - Stream Flow vs. Evapotranspiration'
+    p2.title.text = 'SITE: ' + site_name + ', ' + site + ' - Flow vs. ET'
     p2.yaxis.axis_label = 'Mean Evapotranspiration, Monthly (mm/d)'
     p2.xaxis.axis_label = 'Minimum Stream Flow, Monthly (cfs)'
 
@@ -111,7 +142,43 @@ for site in site_list:
     ]
     p2.add_tools(hover2)
 
-    os.chdir(path)
     save(p2)
+
+    #######################################################
+    # Monthly scatter plot
+
+    output_file(site + '_monthly_scatter_plot.html')
+    list_of_monthly_figs = []
+
+    for i in range(12):
+
+        df_monthly = df_merged[df_merged["month"] == month_dict[i+1]]
+
+        p_month = figure(width=450, height=450)
+        p_month.xgrid.grid_line_color = None
+        p_month.ygrid.grid_line_color = None
+        p_month.circle(x='min_cfs', y='ET_MEAN',
+                 source=ColumnDataSource(df_monthly),
+                 color='black', fill_color="pink",
+                 size=5)
+
+        p_month.title.text = month_dict[i+1] + ' - ' + site_name + ', ' + site 
+        p_month.yaxis.axis_label = 'Mean Evapotranspiration, Monthly (mm/d)'
+        p_month.xaxis.axis_label = 'Minimum Stream Flow, Monthly (cfs)'
+
+        hover3 = HoverTool()
+        hover3.tooltips = [
+            ('Year', '@year'),
+            ('Mean Evapotranspiration', '@ET_MEAN'),
+            ('Minimum Stream Flow', '@min_cfs')
+        ]
+        p_month.add_tools(hover3)
+
+        list_of_monthly_figs.append(p_month)
+
+    save(gridplot([[list_of_monthly_figs[0], list_of_monthly_figs[1], list_of_monthly_figs[2], list_of_monthly_figs[3]],
+                  [list_of_monthly_figs[4], list_of_monthly_figs[5], list_of_monthly_figs[6], list_of_monthly_figs[7]],
+                  [list_of_monthly_figs[8], list_of_monthly_figs[9], list_of_monthly_figs[10], list_of_monthly_figs[11]]]))
+
     os.chdir('..')
 
