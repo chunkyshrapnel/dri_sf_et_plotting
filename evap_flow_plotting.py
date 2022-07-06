@@ -10,14 +10,13 @@ from bokeh.layouts import gridplot
 # Bug notice: Some of the data recieved, had the leading '0' truncated off the front.
 # For example '09180000' --> '9180000'
 # If there are any errors with reading in the raw data, please check the site numbers.
-'''site_list = ['09180000',        # 'DOLORES RIVER NEAR CISCO, UT',
+site_list = ['09180000',        # 'DOLORES RIVER NEAR CISCO, UT',
              '09209400',        # ' GREEN RIVER NEAR LA BARGE, WY',
              '09260000',        # LITTLE SNAKE RIVER NEAR LILY, CO
              '09302000',        # DUCHESNE RIVER NEAR RANDLETT, UT,
              '09306500',        # WHITE RIVER NEAR WATSON, UTAH
              '09379500',        # SAN JUAN RIVER NEAR BLUFF, UT
-             ]'''
-site_list = ['09180000']
+             ]
 
 # Dictionary used to transfer between strings and ints.
 month_dict = {
@@ -34,6 +33,18 @@ month_dict = {
     11: 'Nov',
     12: 'Dec'
 }
+
+##################################################
+# Used for exporting stats to the .xlsx file
+df_mean_r = pd.DataFrame({'station_id': [], 'site_name': [], 'January': [], 'February': [],
+                          'March': [], 'April': [], 'May': [], 'June': [], 'July': [], 'August': [],
+                          'September': [], 'October': [], 'November': [], 'December': []})
+
+df_mean_p = df_mean_r.copy(deep=True)
+df_max_r = df_mean_r.copy(deep=True)
+df_max_p = df_mean_r.copy(deep=True)
+df_min_r = df_mean_r.copy(deep=True)
+df_min_p = df_mean_r.copy(deep=True)
 
 # Read in the metadata so that the site names can be attached to the graph.
 try:
@@ -187,19 +198,12 @@ for site in site_list:
     #######################################################
     # Pearson Correlation Coefficient Calculations
 
-    #new_df = pd.read_excel('monthly_gage_vs_et_correlations.xlsx')
-    #print(new_df)
-
-    df_mean_r = pd.DataFrame({'station_id': [], 'site_name': [], 'January': [], 'February': [],
-                              'March': [], 'April': [], 'May': [], 'June': [], 'July': [], 'August': [],
-                              'September': [], 'October': [], 'November': [], 'December': []})
-
-    df_mean_r = df_mean_r.transpose()
-    df_mean_p = df_mean_r.copy(deep=True)
-    df_max_r = df_mean_r.copy(deep=True)
-    df_max_p = df_mean_r.copy(deep=True)
-    df_min_r = df_mean_r.copy(deep=True)
-    df_min_p = df_mean_r.copy(deep=True)
+    record_mean_r = [site, site_name]
+    record_mean_p = [site, site_name]
+    record_max_r = [site, site_name]
+    record_max_p = [site, site_name]
+    record_min_r = [site, site_name]
+    record_min_p = [site, site_name]
 
     for i in range(12):
 
@@ -209,37 +213,51 @@ for site in site_list:
         r_correlation_max, p_max = stats.pearsonr(df_monthly['ET_MEAN'], df_monthly['max_cfs'])
         r_correlation_min, p_min = stats.pearsonr(df_monthly['ET_MEAN'], df_monthly['min_cfs'])
 
-    writer = pd.ExcelWriter('demo.xlsx', engine='xlsxwriter')
+        record_mean_r.append(r_correlation_mean)
+        record_mean_p.append(p_mean)
+        record_max_r.append(r_correlation_max)
+        record_max_p.append(p_max)
+        record_min_r.append(r_correlation_min)
+        record_min_p.append(p_min)
 
-    df_mean_r.to_excel(writer, sheet_name='mean_flow', index=True)
-    df_mean_p.to_excel(writer, sheet_name='mean_flow', index=True, startrow=17)
-    df_max_r.to_excel(writer, sheet_name='max_flow', index=True)
-    df_max_p.to_excel(writer, sheet_name='max_flow', index=True, startrow=17)
-    df_min_r.to_excel(writer, sheet_name='min_flow', index=True)
-    df_min_p.to_excel(writer, sheet_name='min_flow', index=True, startrow=17)
+    df_mean_r.loc[len(df_mean_r.index)] = record_mean_r
+    df_mean_p.loc[len(df_mean_p.index)] = record_mean_p
+    df_max_r.loc[len(df_max_r.index)] = record_max_r
+    df_max_p.loc[len(df_max_p.index)] = record_max_p
+    df_min_r.loc[len(df_min_r.index)] = record_min_r
+    df_min_p.loc[len(df_min_p.index)] = record_min_p
 
-    ws_mean = writer.sheets['mean_flow']
-    ws_mean.write_string(0, 0, 'Pearson Correlation Coefficient: R')
-    ws_mean.write_string(17, 0, 'P-value')
-    ws_mean.set_column(0, 0, 35)
-    ws_mean.set_column(1, 50, 50)
-    ws_mean = writer.sheets['max_flow']
-    ws_mean.write_string(0, 0, 'Pearson Correlation Coefficient: R')
-    ws_mean.write_string(17, 0, 'P-value')
-    ws_mean.set_column(0, 0, 35)
-    ws_mean.set_column(1, 50, 50)
-    ws_mean = writer.sheets['min_flow']
-    ws_mean.write_string(0, 0, 'Pearson Correlation Coefficient: R')
-    ws_mean.write_string(17, 0, 'P-value')
-    ws_mean.set_column(0, 0, 35)
-    ws_mean.set_column(1, 50, 50)
+df_mean_r = df_mean_r.transpose()
+df_mean_p = df_mean_p.transpose()
+df_max_r = df_max_r.transpose()
+df_max_p = df_max_p.transpose()
+df_min_r = df_min_r.transpose()
+df_min_p = df_min_p.transpose()
 
-    writer.save()
+writer = pd.ExcelWriter('monthly_gage_vs_et_correlations.xlsx', engine='xlsxwriter')
 
-    for i in range(12):
+df_mean_r.to_excel(writer, sheet_name='mean_flow', index=True)
+df_mean_p.to_excel(writer, sheet_name='mean_flow', index=True, startrow=17)
+df_max_r.to_excel(writer, sheet_name='max_flow', index=True)
+df_max_p.to_excel(writer, sheet_name='max_flow', index=True, startrow=17)
+df_min_r.to_excel(writer, sheet_name='min_flow', index=True)
+df_min_p.to_excel(writer, sheet_name='min_flow', index=True, startrow=17)
 
-        df_monthly = df_merged[df_merged["month"] == month_dict[i+1]]
+ws_mean = writer.sheets['mean_flow']
+ws_mean.write_string(0, 0, 'Pearson Correlation Coefficient: R')
+ws_mean.write_string(17, 0, 'P-value')
+ws_mean.set_column(0, 0, 35)
+ws_mean.set_column(1, 50, 50)
+ws_mean = writer.sheets['max_flow']
+ws_mean.write_string(0, 0, 'Pearson Correlation Coefficient: R')
+ws_mean.write_string(17, 0, 'P-value')
+ws_mean.set_column(0, 0, 35)
+ws_mean.set_column(1, 50, 50)
+ws_mean = writer.sheets['min_flow']
+ws_mean.write_string(0, 0, 'Pearson Correlation Coefficient: R')
+ws_mean.write_string(17, 0, 'P-value')
+ws_mean.set_column(0, 0, 35)
+ws_mean.set_column(1, 50, 50)
 
-        r_correlation_mean, p_mean = stats.pearsonr(df_monthly['ET_MEAN'], df_monthly['mean_cfs'])
-        r_correlation_max, p_max = stats.pearsonr(df_monthly['ET_MEAN'], df_monthly['max_cfs'])
-        r_correlation_min, p_min = stats.pearsonr(df_monthly['ET_MEAN'], df_monthly['min_cfs'])
+writer.save()
+
