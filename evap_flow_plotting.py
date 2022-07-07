@@ -12,14 +12,13 @@ from bokeh.layouts import gridplot
 # Bug notice: Some of the data recieved, had the leading '0' truncated off the front.
 # For example '09180000' --> '9180000'
 # If there are any errors with reading in the raw data, please check the site numbers.
-'''site_list = ['09180000',        # DOLORES RIVER NEAR CISCO, UT,
+site_list = ['09180000',        # DOLORES RIVER NEAR CISCO, UT,
              '09209400',        # GREEN RIVER NEAR LA BARGE, WY,
              '09260000',        # LITTLE SNAKE RIVER NEAR LILY, CO
              '09302000',        # DUCHESNE RIVER NEAR RANDLETT, UT,
              '09306500',        # WHITE RIVER NEAR WATSON, UTAH
              '09379500',        # SAN JUAN RIVER NEAR BLUFF, UT
-             ]'''
-site_list = ['09180000']
+             ]
 
 # Right now the script is set up so that it only works with one ET variable at a time.
 # For example, the script works with 'ET_MEAN' or 'EToF_MEAN', not both at the same time.
@@ -239,7 +238,8 @@ for site in site_list:
                      'Kendall r: ' + str(round(kendall_r, 4)) + '\n' + \
                      'Kendall P-Value: ' + str(round(kendall_p, 4)) + '\n' + \
                      'n: ' + str(len(df_monthly))
-        label = Label(x=100, y=70, x_units='screen', y_units='screen', text=label_text)
+        label = Label(x=255, y=20, x_units='screen', y_units='screen',
+                      text_font_size='8pt', text=label_text)
         p_month.add_layout(label)
 
         hover3 = HoverTool()
@@ -252,7 +252,7 @@ for site in site_list:
 
         list_of_monthly_figs.append(p_month)
 
-    show(gridplot([[list_of_monthly_figs[0], list_of_monthly_figs[1], list_of_monthly_figs[2], list_of_monthly_figs[3]],
+    save(gridplot([[list_of_monthly_figs[0], list_of_monthly_figs[1], list_of_monthly_figs[2], list_of_monthly_figs[3]],
                   [list_of_monthly_figs[4], list_of_monthly_figs[5], list_of_monthly_figs[6], list_of_monthly_figs[7]],
                   [list_of_monthly_figs[8], list_of_monthly_figs[9], list_of_monthly_figs[10], list_of_monthly_figs[11]]]))
 
