@@ -1,27 +1,31 @@
 import pandas as pd
 import os
 from scipy import stats
-from bokeh.io import output_file, save, show, curdoc
+import numpy as np
+from bokeh.io import output_file, save, show
 from bokeh.plotting import figure
 from bokeh.models import LinearAxis, Range1d, ColumnDataSource
+from bokeh.models.annotations import Label
 from bokeh.models.tools import HoverTool
 from bokeh.layouts import gridplot
 
 # Bug notice: Some of the data recieved, had the leading '0' truncated off the front.
 # For example '09180000' --> '9180000'
 # If there are any errors with reading in the raw data, please check the site numbers.
-site_list = ['09180000',        # 'DOLORES RIVER NEAR CISCO, UT',
-             '09209400',        # ' GREEN RIVER NEAR LA BARGE, WY',
+'''site_list = ['09180000',        # DOLORES RIVER NEAR CISCO, UT,
+             '09209400',        # GREEN RIVER NEAR LA BARGE, WY,
              '09260000',        # LITTLE SNAKE RIVER NEAR LILY, CO
              '09302000',        # DUCHESNE RIVER NEAR RANDLETT, UT,
              '09306500',        # WHITE RIVER NEAR WATSON, UTAH
              '09379500',        # SAN JUAN RIVER NEAR BLUFF, UT
-             ]
+             ]'''
+site_list = ['09180000']
 
 # Right now the script is set up so that it only works with one ET variable at a time.
 # For example, the script works with 'ET_MEAN' or 'EToF_MEAN', not both at the same time.
 # To export different variables, the global variable below must be changed.
-ET_var = 'ET_MEAN'
+ET_var = 'EToF_MEAN'
+
 # Dictionary used to transfer between strings and ints.
 month_dict = {
     1: 'Jan',
@@ -111,7 +115,7 @@ for site in site_list:
     p.circle(x='START_DATE', y='min_cfs',
            legend_label='min_cfs, Monthly (cfs)',
              source=ColumnDataSource(df_merged),
-             color='blue', size=5)
+             color='blue', size=6)
     p.line(x='START_DATE', y='min_cfs',
              source=ColumnDataSource(df_merged),
              color='blue')
@@ -121,7 +125,7 @@ for site in site_list:
            source=ColumnDataSource(df_merged),
            y_range_name='foo',
            legend_label= ET_var + ', Monthly (mm/d)',#idk if this is the right units
-           color='green', size=5)
+           color='green', size=6)
     p.line(x='START_DATE', y=ET_var,
            source=ColumnDataSource(df_merged),
            y_range_name='foo',
@@ -154,12 +158,34 @@ for site in site_list:
     p2.ygrid.grid_line_color = None
     p2.circle(x='min_cfs', y=ET_var,
              source=ColumnDataSource(df_merged),
-             color='black', fill_color="pink",
-             size=5)
+             color='black', fill_color="#add8e6",
+             size=8)
 
     p2.title.text = 'SITE: ' + site_name + ', ' + site + ' - Flow vs. ET'
     p2.yaxis.axis_label = ET_var + ', Monthly (mm/d)'
     p2.xaxis.axis_label = 'min_cfs, Monthly (cfs)'
+
+    # Calculate the least-square regression line
+    regression_line = np.polyfit(df_merged['min_cfs'], df_merged[ET_var], 1, full=True)
+    slope = regression_line[0][0]
+    intercept = regression_line[0][1]
+    y_predicted = [slope * i + intercept for i in df_merged['min_cfs']]
+    p2.line(df_merged['min_cfs'], y_predicted, color='black')
+
+    # Calculations to be used in the stats label on every scatter plot
+    pearson_r, pearson_p = stats.pearsonr(df_merged[ET_var], df_merged['min_cfs'])
+    kendall_r, kendall_p = stats.kendalltau(df_merged[ET_var], df_merged['min_cfs'])
+
+    # The stats label to be added.
+    label_text = 'Slope: ' + str(round(slope, 4)) + '\n' +\
+                 'Intercept: ' + str(round(intercept, 4)) + '\n' +\
+                 'Pearson r: ' + str(round(pearson_r, 4)) + '\n' +\
+                 'Pearson P-Value: ' + str(round(pearson_p, 4)) + '\n' +\
+                 'Kendall r: ' + str(round(kendall_r, 4)) + '\n' +\
+                 'Kendall P-Value: ' + str(round(kendall_p, 4)) + '\n' +\
+                 'n: ' + str(len(df_merged))
+    label = Label(x=620, y=70, x_units='screen', y_units='screen', text=label_text)
+    p2.add_layout(label)
 
     hover2 = HoverTool()
     hover2.tooltips=[
@@ -187,12 +213,34 @@ for site in site_list:
         p_month.ygrid.grid_line_color = None
         p_month.circle(x='min_cfs', y=ET_var,
                  source=ColumnDataSource(df_monthly),
-                 color='black', fill_color="pink",
-                 size=5)
+                 color='black', fill_color="#add8e6",
+                 size=8)
 
         p_month.title.text = month_dict[i+1] + ' - ' + site_name + ', ' + site
         p_month.yaxis.axis_label = ET_var + ', Monthly (mm/d)'
         p_month.xaxis.axis_label = 'min_cfs, Monthly (cfs)'
+
+        # Calculate the least-square regression line
+        regression_line = np.polyfit(df_monthly['min_cfs'], df_monthly[ET_var], 1, full=True)
+        slope = regression_line[0][0]
+        intercept = regression_line[0][1]
+        y_predicted = [slope * i + intercept for i in df_monthly['min_cfs']]
+        p_month.line(df_monthly['min_cfs'], y_predicted, color='black')
+
+        # Calculations to be used in the stats label on every scatter plot
+        pearson_r, pearson_p = stats.pearsonr(df_monthly[ET_var], df_monthly['min_cfs'])
+        kendall_r, kendall_p = stats.kendalltau(df_monthly[ET_var], df_monthly['min_cfs'])
+
+        # The stats label to be added.
+        label_text = 'Slope: ' + str(round(slope, 4)) + '\n' + \
+                     'Intercept: ' + str(round(intercept, 4)) + '\n' + \
+                     'Pearson r: ' + str(round(pearson_r, 4)) + '\n' + \
+                     'Pearson P-Value: ' + str(round(pearson_p, 4)) + '\n' + \
+                     'Kendall r: ' + str(round(kendall_r, 4)) + '\n' + \
+                     'Kendall P-Value: ' + str(round(kendall_p, 4)) + '\n' + \
+                     'n: ' + str(len(df_monthly))
+        label = Label(x=100, y=70, x_units='screen', y_units='screen', text=label_text)
+        p_month.add_layout(label)
 
         hover3 = HoverTool()
         hover3.tooltips = [
@@ -204,7 +252,7 @@ for site in site_list:
 
         list_of_monthly_figs.append(p_month)
 
-    save(gridplot([[list_of_monthly_figs[0], list_of_monthly_figs[1], list_of_monthly_figs[2], list_of_monthly_figs[3]],
+    show(gridplot([[list_of_monthly_figs[0], list_of_monthly_figs[1], list_of_monthly_figs[2], list_of_monthly_figs[3]],
                   [list_of_monthly_figs[4], list_of_monthly_figs[5], list_of_monthly_figs[6], list_of_monthly_figs[7]],
                   [list_of_monthly_figs[8], list_of_monthly_figs[9], list_of_monthly_figs[10], list_of_monthly_figs[11]]]))
 
